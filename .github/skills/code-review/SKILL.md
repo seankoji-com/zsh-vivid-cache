@@ -41,9 +41,9 @@ invariants and its test suite, not from a bug pattern.
   `.github/workflows/*.yml`; skip deep review of the synced content itself.
 - `spec/spec_helper.sh` — fixed shellspec bootstrap boilerplate, no project
   logic.
-- `.github/workflows/codeql.yml` scans workflow YAML for injection (there's no
-  shell analyzer for the plugin itself) — don't expect it to catch shell bugs,
-  and don't re-flag what it already covers in workflow files.
+- Unchanged `call-reusable-*.yml` template content can be checked against
+  the central source. Review local workflow changes, including caller
+  triggers, permissions, runner choices, and pinned revisions.
 - README/LICENSE wording — no functional risk.
 
 ## Comment style
