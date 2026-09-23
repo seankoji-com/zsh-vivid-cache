@@ -144,4 +144,29 @@ EOF
       The status should be success
     End
   End
+  Describe 'refreshing a working cache'
+    Parameters
+      partial 1
+      '' 0
+    End
+    It 'preserves the previous cache and removes failed temporary output'
+      run_it() {
+        fake_vivid 'known-good'
+        vivid_cache_refresh || return
+        fake_vivid "$1" "$2"
+        vivid_cache_refresh 2>/dev/null
+        local rc=$?
+        print -r -- "$(<"$ZSH_VIVID_CACHE_DIR/ls_colors.testtheme")"
+        local -a leftovers
+        leftovers=("$ZSH_VIVID_CACHE_DIR"/ls_colors.testtheme.*(N))
+        print -r -- "${#leftovers}"
+        return $rc
+      }
+      When call run_it "$1" "$2"
+      The status should be failure
+      The line 1 of output should equal 'known-good'
+      The line 2 of output should equal '0'
+    End
+  End
+
 End
