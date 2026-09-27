@@ -34,16 +34,22 @@ invariants and its test suite, not from a bug pattern.
   check on quoting/word-splitting/glob bugs in the `.zsh` — verify directly,
   don't assume a green check covers it.
 
+- Review local workflow changes, including reusable caller triggers,
+  permissions, runner choices, and pinned revisions.
+
+- CodeQL scans workflow YAML for injection and has no shell analyzer for
+  this plugin. Verify shell behavior directly; avoid repeating its workflow findings.
+
 ## Do not spend attention here
+
+- Unchanged reusable workflow template content can be checked against its
+  central source; review any local changes.
 
 - PRs titled `chore(ci): sync caller templates from seankoji-com/.github` —
   mechanical syncs pushed from the org hub. Confirm they only touch
   `.github/workflows/*.yml`; skip deep review of the synced content itself.
 - `spec/spec_helper.sh` — fixed shellspec bootstrap boilerplate, no project
   logic.
-- `.github/workflows/codeql.yml` scans workflow YAML for injection (there's no
-  shell analyzer for the plugin itself) — don't expect it to catch shell bugs,
-  and don't re-flag what it already covers in workflow files.
 - README/LICENSE wording — no functional risk.
 
 ## Comment style
