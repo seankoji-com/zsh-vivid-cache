@@ -34,16 +34,19 @@ invariants and its test suite, not from a bug pattern.
   check on quoting/word-splitting/glob bugs in the `.zsh` — verify directly,
   don't assume a green check covers it.
 
+- Review local workflow changes, including reusable caller triggers,
+  permissions, runner choices, and pinned revisions.
+
 ## Do not spend attention here
+
+- Unchanged reusable workflow template content can be checked against its
+  central source; review any local changes.
 
 - PRs titled `chore(ci): sync caller templates from seankoji-com/.github` —
   mechanical syncs pushed from the org hub. Confirm they only touch
   `.github/workflows/*.yml`; skip deep review of the synced content itself.
 - `spec/spec_helper.sh` — fixed shellspec bootstrap boilerplate, no project
   logic.
-- Unchanged `call-reusable-*.yml` template content can be checked against
-  the central source. Review local workflow changes, including caller
-  triggers, permissions, runner choices, and pinned revisions.
 - README/LICENSE wording — no functional risk.
 
 ## Comment style
