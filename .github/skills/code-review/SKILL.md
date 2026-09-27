@@ -37,6 +37,9 @@ invariants and its test suite, not from a bug pattern.
 - Review local workflow changes, including reusable caller triggers,
   permissions, runner choices, and pinned revisions.
 
+- CodeQL scans workflow YAML for injection and has no shell analyzer for
+  this plugin. Verify shell behavior directly; avoid repeating its workflow findings.
+
 ## Do not spend attention here
 
 - Unchanged reusable workflow template content can be checked against its
