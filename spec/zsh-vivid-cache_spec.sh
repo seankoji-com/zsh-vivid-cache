@@ -87,6 +87,21 @@ EOF
       The status should be failure
       The stderr should include 'not installed'
     End
+
+    It 'explains when the version cannot be read'
+      run_it() {
+        cat > "$FAKEBIN/vivid" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+        chmod +x "$FAKEBIN/vivid"
+        hash -r
+        vivid_cache_refresh
+      }
+      When call run_it
+      The status should be failure
+      The stderr should include 'could not determine cache key'
+    End
   End
 
   Describe 'vivid_cache_load'
@@ -165,6 +180,21 @@ EOF
       The output should equal 'second'
     End
 
+    It 'distinguishes bare theme files in different directories'
+      run_it() {
+        mkdir -p "$TMPROOT/one" "$TMPROOT/two"
+        touch "$TMPROOT/one/theme.yaml" "$TMPROOT/two/theme.yaml"
+        ZSH_VIVID_THEME='theme.yaml'
+        cd "$TMPROOT/one" || return
+        fake_vivid 'first'; vivid_cache_load
+        cd "$TMPROOT/two" || return
+        fake_vivid 'second'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
     It 'is a no-op when vivid is missing'
       run_it() {
         no_vivid
@@ -191,7 +221,6 @@ EOF
 
     It 'leaves LS_COLORS alone when the version cannot be read'
       run_it() {
-        fake_vivid '' 1
         cat > "$FAKEBIN/vivid" <<'EOF'
 #!/bin/sh
 exit 1

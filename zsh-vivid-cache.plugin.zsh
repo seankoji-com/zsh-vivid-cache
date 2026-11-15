@@ -8,7 +8,7 @@
 # The cache is keyed by the complete theme argument and vivid version.
 #
 # Configure before loading:
-#   ZSH_VIVID_THEME       theme name, default 'snazzy'. `vivid themes` lists them
+#   ZSH_VIVID_THEME       theme name or path, default 'snazzy'
 #   ZSH_VIVID_CACHE_DIR   cache location, default ~/.cache/zsh
 #
 # Does nothing when vivid is not installed, leaving any LS_COLORS you already
@@ -21,7 +21,7 @@
 vivid_cache_path() {
   local version digest theme_key="$ZSH_VIVID_THEME"
   # Relative paths refer to different files when shells start in different directories.
-  if [[ "$theme_key" == */* && "$theme_key" != /* ]]; then
+  if [[ "$theme_key" != /* && ( "$theme_key" == */* || -f "$theme_key" ) ]]; then
     theme_key="$PWD/$theme_key"
   fi
   version="$(vivid --version 2>/dev/null)" || return 1
@@ -46,7 +46,10 @@ vivid_cache_refresh() {
     return 1
   }
   local cache
-  cache="$(vivid_cache_path)" || return 1
+  cache="$(vivid_cache_path)" || {
+    print -u2 'vivid_cache_refresh: could not determine cache key'
+    return 1
+  }
   _vivid_cache_generate "$cache"
 }
 
