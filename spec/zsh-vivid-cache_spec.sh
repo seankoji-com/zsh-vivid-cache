@@ -23,6 +23,10 @@ Describe 'zsh-vivid-cache.plugin.zsh'
     # $1 stdout, $2 exit status
     cat > "$FAKEBIN/vivid" <<EOF
 #!/bin/sh
+if [ "\$1" = --version ]; then
+  printf '%s\n' "\${FAKE_VIVID_VERSION:-vivid 1}"
+  exit 0
+fi
 printf '%s' "$1"
 exit ${2:-0}
 EOF
@@ -35,11 +39,11 @@ EOF
   Include ./zsh-vivid-cache.plugin.zsh
 
   Describe 'vivid_cache_refresh'
-    It 'writes the cache keyed by theme name'
+    It 'writes the cache for the current theme and version'
       run_it() {
         fake_vivid 'di=01;34:'
         vivid_cache_refresh
-        cat "$ZSH_VIVID_CACHE_DIR/ls_colors.testtheme"
+        cat "$(vivid_cache_path)"
       }
       When call run_it
       The output should equal 'di=01;34:'
@@ -57,7 +61,7 @@ EOF
       run_it() {
         fake_vivid 'partial' 1
         vivid_cache_refresh 2>/dev/null
-        [[ -f "$ZSH_VIVID_CACHE_DIR/ls_colors.testtheme" ]] && print PRESENT || print ABSENT
+        [[ -f "$(vivid_cache_path)" ]] && print PRESENT || print ABSENT
       }
       When call run_it
       The output should equal 'ABSENT'
@@ -120,6 +124,47 @@ EOF
       The output should equal 'theme-b-colors'
     End
 
+    It 'keeps path themes with the same basename distinct and reuses each cache'
+      run_it() {
+        fake_vivid 'first'
+        ZSH_VIVID_THEME='/one/theme.yaml'; vivid_cache_load
+        fake_vivid 'second'
+        ZSH_VIVID_THEME='/two/theme.yaml'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+        ZSH_VIVID_THEME='/one/theme.yaml'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The line 1 of output should equal 'second'
+      The line 2 of output should equal 'first'
+    End
+
+    It 'regenerates when vivid version changes'
+      run_it() {
+        export FAKE_VIVID_VERSION='vivid 1'
+        fake_vivid 'first'; vivid_cache_load
+        FAKE_VIVID_VERSION='vivid 2'
+        fake_vivid 'second'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
+    It 'distinguishes the same relative path in different directories'
+      run_it() {
+        mkdir -p "$TMPROOT/one" "$TMPROOT/two"
+        ZSH_VIVID_THEME='./theme.yaml'
+        cd "$TMPROOT/one" || return
+        fake_vivid 'first'; vivid_cache_load
+        cd "$TMPROOT/two" || return
+        fake_vivid 'second'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
     It 'is a no-op when vivid is missing'
       run_it() {
         no_vivid
@@ -143,6 +188,23 @@ EOF
       The output should equal 'preexisting'
       The status should be success
     End
+
+    It 'leaves LS_COLORS alone when the version cannot be read'
+      run_it() {
+        fake_vivid '' 1
+        cat > "$FAKEBIN/vivid" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+        chmod +x "$FAKEBIN/vivid"
+        LS_COLORS='preexisting'
+        vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'preexisting'
+      The status should be success
+    End
   End
   Describe 'refreshing a working cache'
     Parameters
@@ -156,9 +218,10 @@ EOF
         fake_vivid "$1" "$2"
         vivid_cache_refresh 2>/dev/null
         local rc=$?
-        print -r -- "$(<"$ZSH_VIVID_CACHE_DIR/ls_colors.testtheme")"
+        local cache="$(vivid_cache_path)"
+        print -r -- "$(<$cache)"
         local -a leftovers
-        leftovers=("$ZSH_VIVID_CACHE_DIR"/ls_colors.testtheme.*(N))
+        leftovers=("$cache".*(N))
         print -r -- "${#leftovers}"
         return $rc
       }
