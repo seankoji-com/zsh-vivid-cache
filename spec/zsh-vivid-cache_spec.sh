@@ -15,7 +15,7 @@ Describe 'zsh-vivid-cache.plugin.zsh'
     PATH="$FAKEBIN:/usr/bin:/bin"
     hash -r
   }
-  cleanup() { rm -rf "$TMPROOT"; }
+  cleanup() { /bin/rm -rf "$TMPROOT"; }
   BeforeEach 'setup'
   AfterEach 'cleanup'
 
@@ -177,19 +177,37 @@ EOF
       The output should equal 'DISTINCT'
     End
 
-    It 'uses a fixed-length key for long theme paths'
+    It 'keeps theme and version boundaries distinct'
       run_it() {
+        export FAKE_VIVID_VERSION=b
         fake_vivid 'first'
-        ZSH_VIVID_THEME="/${(l:300::a:)}"; vivid_cache_load
+        ZSH_VIVID_THEME=a1; vivid_cache_load
+        FAKE_VIVID_VERSION=1b
         fake_vivid 'second'
-        ZSH_VIVID_THEME="/${(l:300::b:)}"; vivid_cache_load
+        ZSH_VIVID_THEME=a; vivid_cache_load
         print -r -- "$LS_COLORS"
       }
       When call run_it
       The output should equal 'second'
     End
 
-    It 'does not need a hash command for short keys'
+    It 'keeps long theme paths distinct with bounded components'
+      run_it() {
+        fake_vivid 'first'
+        ZSH_VIVID_THEME="/${(l:300::a:)}"; vivid_cache_load
+        fake_vivid 'second'
+        ZSH_VIVID_THEME="/${(l:300::b:)}"; vivid_cache_load
+        local cache_path="$(vivid_cache_path)" component
+        for component in "${(@s:/:)cache_path}"; do
+          (( ${#component} <= 100 )) || return 1
+        done
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
+    It 'does not need a hash command for ordinary path keys'
       run_it() {
         fake_vivid 'colors'
         cat > "$FAKEBIN/sha256sum" <<'EOF'
@@ -198,7 +216,7 @@ exit 1
 EOF
         chmod +x "$FAKEBIN/sha256sum"
         hash -r
-        vivid_cache_load
+        ZSH_VIVID_THEME="/${(l:300::a:)}"; vivid_cache_load
         print -r -- "$LS_COLORS"
       }
       When call run_it
@@ -225,7 +243,7 @@ exit 1
 EOF
         chmod +x "$FAKEBIN/sha256sum"
         hash -r
-        ZSH_VIVID_THEME="/${(l:120::a:)}"
+        ZSH_VIVID_THEME="/${(l:1600::a:)}"
         LS_COLORS='preexisting'
         vivid_cache_load
         print -r -- "$LS_COLORS"
@@ -234,9 +252,68 @@ EOF
       The output should equal 'preexisting'
     End
 
+    It 'uses shasum for an exceptionally long key when sha256sum is absent'
+      run_it() {
+        fake_vivid 'colors'
+        cat > "$FAKEBIN/shasum" <<'EOF'
+#!/bin/sh
+[ "$1" = -a ] && [ "$2" = 256 ] || exit 1
+printf '%064d  -\n' 0
+EOF
+        chmod +x "$FAKEBIN/shasum"
+        PATH="$FAKEBIN"
+        hash -r
+        ZSH_VIVID_THEME="/${(l:1600::a:)}"
+        local cache_path="$(vivid_cache_path)" cache_name
+        cache_name="${cache_path:t}"
+        [[ "$cache_name" == ls_colors.h.* && ${#cache_name} -eq 76 ]] && print FALLBACK
+      }
+      When call run_it
+      The output should equal 'FALLBACK'
+    End
+
+    It 'reports when no hash tool is available for an exceptionally long key'
+      run_it() {
+        fake_vivid 'colors'
+        PATH="$FAKEBIN"
+        hash -r
+        ZSH_VIVID_THEME="/${(l:1600::a:)}"
+        vivid_cache_path
+      }
+      When call run_it
+      The status should be failure
+      The stderr should include 'sha256sum or shasum is required'
+    End
+
+    It 'keeps keys distinct under ksh_arrays'
+      run_it() {
+        fake_vivid 'first'
+        setopt localoptions ksh_arrays
+        ZSH_VIVID_THEME=Ayz; vivid_cache_load
+        fake_vivid 'second'
+        ZSH_VIVID_THEME=Byz; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
     It 'regenerates when vivid version changes'
       run_it() {
         export FAKE_VIVID_VERSION='vivid 1'
+        fake_vivid 'first'; vivid_cache_load
+        FAKE_VIVID_VERSION='vivid 2'
+        fake_vivid 'second'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
+    It 'regenerates a long path when vivid version changes'
+      run_it() {
+        export FAKE_VIVID_VERSION='vivid 1'
+        ZSH_VIVID_THEME="/${(l:300::a:)}"
         fake_vivid 'first'; vivid_cache_load
         FAKE_VIVID_VERSION='vivid 2'
         fake_vivid 'second'; vivid_cache_load

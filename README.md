@@ -3,9 +3,8 @@
 Caches [vivid](https://github.com/sharkdp/vivid)'s `LS_COLORS` instead of
 regenerating it on every shell start.
 
-vivid produces a good `LS_COLORS` from a named theme, but it is a subprocess,
-and the string only changes when you change themes. This generates once and
-reads a file thereafter.
+The plugin runs `vivid --version` to select a cache on each load. It runs
+`vivid generate` only when that cache is missing or you refresh it.
 
 ## Install
 
@@ -29,8 +28,9 @@ Set before the plugin loads.
 
 The cache key includes the full theme argument and the output of `vivid --version`.
 Relative theme paths also include the shell's current directory.
-Switching themes or upgrading vivid generates a new cache. Long keys require a
-SHA-256 utility (`sha256sum` or `shasum`).
+Switching themes or upgrading vivid generates a new cache. Extremely long keys
+that would exceed the path length budget require a SHA-256 utility (`sha256sum`
+or `shasum`).
 
 Old cache files remain when themes or vivid versions change, including files
 created by older plugin versions. No cache files are deleted automatically.
@@ -48,6 +48,9 @@ cache key. Refresh the cache after editing it:
 ```zsh
 vivid_cache_refresh
 ```
+
+`vivid_cache_path` prints the current cache file path for inspection. It also
+checks the installed vivid version.
 
 Generation writes to a temporary file and moves it into place. A failed or
 truncated run would otherwise leave a half-written cache that every later shell

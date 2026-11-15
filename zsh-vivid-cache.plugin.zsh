@@ -1,9 +1,7 @@
 # zsh-vivid-cache — cache vivid's LS_COLORS instead of regenerating it.
 #
-# vivid (https://github.com/sharkdp/vivid) generates a good LS_COLORS from a
-# named theme, but it is a subprocess, and running it on every shell start to
-# produce a string that only changes when you change themes is waste. This
-# generates once and reads a cache file thereafter.
+# vivid (https://github.com/sharkdp/vivid) generates LS_COLORS from a theme.
+# Each load checks vivid's version; generation runs only on a cache miss.
 #
 # The cache is keyed by the complete theme argument and vivid version.
 #
@@ -17,10 +15,11 @@
 : ${ZSH_VIVID_THEME:=snazzy}
 : ${ZSH_VIVID_CACHE_DIR:=${HOME}/.cache/zsh}
 
-# Encode separators so the filename uniquely identifies both inputs. Long
-# keys use SHA-256 to stay within filesystem component length limits.
+# Encode length-prefixed inputs into bounded path components. Extremely long keys use SHA-256
+# to stay within the operating system's total path length limit.
 _vivid_cache_path() {
-  local version digest key encoded='' byte i theme_key="$ZSH_VIVID_THEME"
+  emulate -L zsh
+  local version digest key encoded='' byte i key_path theme_key="$ZSH_VIVID_THEME"
   # Relative paths refer to different files when shells start in different directories.
   if [[ "$theme_key" != /* && ( "$theme_key" == */* || -f "$theme_key" ) ]]; then
     theme_key="$PWD/$theme_key"
@@ -28,19 +27,21 @@ _vivid_cache_path() {
   version="$(vivid --version 2>/dev/null)" || return 1
   [[ -n "$version" ]] || return 1
   local LC_ALL=C
-  theme_key="${theme_key//\%/%25}"
-  theme_key="${theme_key//\//%2F}"
-  version="${version//\%/%25}"
-  version="${version//\//%2F}"
-  key="${theme_key}%00${version}"
-  # Hex is safe on case-insensitive filesystems. Leave room for the temporary
-  # filename on eCryptfs, whose component limit can be smaller than 255 bytes.
-  if (( ${#key} <= 50 )); then
+  key="${#theme_key}:${theme_key}${version}"
+  # Hex is safe on case-insensitive filesystems. Components stay below the
+  # 143-byte eCryptfs limit, including the final temporary-file PID.
+  if (( ${#ZSH_VIVID_CACHE_DIR} + ${#key} * 2 + ${#key} / 50 + 32 < 3000 )); then
+    key_path="${ZSH_VIVID_CACHE_DIR}/ls_colors.v2"
     for (( i = 1; i <= ${#key}; i++ )); do
       printf -v byte '%02x' "'${key[i]}"
       encoded+="$byte"
+      if (( ${#encoded} == 100 )); then
+        key_path+="/$encoded"
+        encoded=''
+      fi
     done
-    REPLY="${ZSH_VIVID_CACHE_DIR}/ls_colors.k.${encoded}"
+    [[ -z "$encoded" ]] || key_path+="/$encoded"
+    REPLY="$key_path/data"
     return 0
   fi
   if (( $+commands[sha256sum] )); then
@@ -57,6 +58,7 @@ _vivid_cache_path() {
 }
 
 vivid_cache_path() {
+  emulate -L zsh
   local REPLY
   _vivid_cache_path || return 1
   print -r -- "$REPLY"
@@ -64,6 +66,7 @@ vivid_cache_path() {
 
 # Refresh after editing a custom theme file; its contents are not in the key.
 vivid_cache_refresh() {
+  emulate -L zsh
   (( $+commands[vivid] )) || {
     print -u2 "vivid_cache_refresh: vivid is not installed"
     return 1
@@ -78,6 +81,7 @@ vivid_cache_refresh() {
 }
 
 _vivid_cache_generate() {
+  emulate -L zsh
   local cache="$1"
   mkdir -p "${cache:h}" || return 1
 
@@ -100,6 +104,7 @@ _vivid_cache_generate() {
 }
 
 vivid_cache_load() {
+  emulate -L zsh
   (( $+commands[vivid] )) || return 0
   local cache REPLY
   _vivid_cache_path || return 0
