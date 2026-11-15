@@ -154,6 +154,86 @@ EOF
       The line 2 of output should equal 'first'
     End
 
+    It 'keeps escaped separators distinct from literal percent sequences'
+      run_it() {
+        fake_vivid 'first'
+        ZSH_VIVID_THEME='/one/theme.yaml'; vivid_cache_load
+        fake_vivid 'second'
+        ZSH_VIVID_THEME='/one%2Ftheme.yaml'; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
+    It 'keeps names distinct on a case-insensitive filesystem'
+      run_it() {
+        fake_vivid 'colors'
+        ZSH_VIVID_THEME='Theme'; local first="$(vivid_cache_path)"
+        ZSH_VIVID_THEME='theme'; local second="$(vivid_cache_path)"
+        [[ "${(L)first}" != "${(L)second}" ]] && print DISTINCT
+      }
+      When call run_it
+      The output should equal 'DISTINCT'
+    End
+
+    It 'uses a fixed-length key for long theme paths'
+      run_it() {
+        fake_vivid 'first'
+        ZSH_VIVID_THEME="/${(l:300::a:)}"; vivid_cache_load
+        fake_vivid 'second'
+        ZSH_VIVID_THEME="/${(l:300::b:)}"; vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'second'
+    End
+
+    It 'does not need a hash command for short keys'
+      run_it() {
+        fake_vivid 'colors'
+        cat > "$FAKEBIN/sha256sum" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+        chmod +x "$FAKEBIN/sha256sum"
+        hash -r
+        vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'colors'
+    End
+
+    It 'preserves the caller REPLY variable'
+      run_it() {
+        fake_vivid 'colors'
+        REPLY='caller value'
+        vivid_cache_load
+        print -r -- "$REPLY"
+      }
+      When call run_it
+      The output should equal 'caller value'
+    End
+
+    It 'leaves LS_COLORS alone if hashing a long key fails'
+      run_it() {
+        fake_vivid 'colors'
+        cat > "$FAKEBIN/sha256sum" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+        chmod +x "$FAKEBIN/sha256sum"
+        hash -r
+        ZSH_VIVID_THEME="/${(l:120::a:)}"
+        LS_COLORS='preexisting'
+        vivid_cache_load
+        print -r -- "$LS_COLORS"
+      }
+      When call run_it
+      The output should equal 'preexisting'
+    End
+
     It 'regenerates when vivid version changes'
       run_it() {
         export FAKE_VIVID_VERSION='vivid 1'

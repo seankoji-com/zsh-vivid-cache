@@ -29,8 +29,13 @@ Set before the plugin loads.
 
 The cache key includes the full theme argument and the output of `vivid --version`.
 Relative theme paths also include the shell's current directory.
-Switching themes or upgrading vivid generates a new cache. A SHA-256 utility
-(`sha256sum` or `shasum`) is required.
+Switching themes or upgrading vivid generates a new cache. Long keys require a
+SHA-256 utility (`sha256sum` or `shasum`).
+
+Old cache files remain when themes or vivid versions change, including files
+created by older plugin versions. No cache files are deleted automatically.
+Use a dedicated `ZSH_VIVID_CACHE_DIR` if you want to inspect and remove its
+contents manually; check the directory before removing anything.
 
 Does nothing when vivid is not installed, leaving any `LS_COLORS` you already
 have alone.
