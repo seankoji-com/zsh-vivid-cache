@@ -30,7 +30,8 @@ _vivid_cache_path() {
   key="${#theme_key}:${theme_key}${version}"
   # Hex is safe on case-insensitive filesystems. Components stay below the
   # 143-byte eCryptfs limit, including the final temporary-file PID.
-  if (( ${#ZSH_VIVID_CACHE_DIR} + ${#key} * 2 + ${#key} / 50 + 32 < 3000 )); then
+  if (( ${#ZSH_VIVID_CACHE_DIR} + ${#key} * 2 + ${#key} / 50 + 32 < 900 )) &&
+     [[ ! -e "${ZSH_VIVID_CACHE_DIR}/ls_colors.v2" || -d "${ZSH_VIVID_CACHE_DIR}/ls_colors.v2" ]]; then
     key_path="${ZSH_VIVID_CACHE_DIR}/ls_colors.v2"
     for (( i = 1; i <= ${#key}; i++ )); do
       printf -v byte '%02x' "'${key[i]}"

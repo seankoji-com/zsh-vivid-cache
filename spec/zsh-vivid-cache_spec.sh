@@ -252,6 +252,31 @@ EOF
       The output should equal 'preexisting'
     End
 
+    It 'uses a short cache path for a very long theme path'
+      run_it() {
+        fake_vivid 'colors'
+        ZSH_VIVID_THEME="/${(l:450::a:)}"
+        local cache_path="$(vivid_cache_path)"
+        [[ ${#cache_path} -lt 1024 && "$cache_path" == */ls_colors.h.* ]] && print SAFE
+      }
+      When call run_it
+      The output should equal 'SAFE'
+    End
+
+    It 'loads when a legacy v2 theme cache is a file'
+      run_it() {
+        fake_vivid 'colors'
+        mkdir -p "$ZSH_VIVID_CACHE_DIR"
+        print legacy > "$ZSH_VIVID_CACHE_DIR/ls_colors.v2"
+        vivid_cache_load
+        print -r -- "$LS_COLORS"
+        cat "$ZSH_VIVID_CACHE_DIR/ls_colors.v2"
+      }
+      When call run_it
+      The line 1 of output should equal 'colors'
+      The line 2 of output should equal 'legacy'
+    End
+
     It 'uses shasum for an exceptionally long key when sha256sum is absent'
       run_it() {
         fake_vivid 'colors'
